@@ -1,6 +1,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                             
 //  Copyright (C) 2008-2012  Artyom Beilis (Tonkikh) <artyomtnk@yahoo.com>     
+//  			  2019		 Jari Ronkainen (ronchaine) <ronchaine@gmail.com>
 //                                                                             
 //  See accompanying file COPYING.TXT file for licensing details.
 //
@@ -8,12 +9,12 @@
 #ifndef CPPCMS_SERVICE_H
 #define CPPCMS_SERVICE_H
 
-#include <cppcms/defs.h>
-#include <booster/noncopyable.h>
-#include <booster/hold_ptr.h>
-#include <booster/function.h>
+#include <experimental/propagate_const>
+#include <memory>
+#include <functional>
 #include <locale>
-#include <booster/auto_ptr_inc.h>
+
+#include <cppcms/defs.h>
 #include <cppcms/locale_fwd.h>
 #include <cppcms/json.h>
 
@@ -59,7 +60,7 @@ namespace cppcms {
 	/// service.
 	///
 
-	class CPPCMS_API service : public booster::noncopyable
+	class CPPCMS_API service
 	{
 	public:
 		///
@@ -67,18 +68,26 @@ namespace cppcms {
 		/// to service(json::value const &v) constructor allowing to alter these settings before
 		/// creating the actual service object.
 		///
-		static json::value load_settings(int argc,char *argv[]);
+		static json::value load_settings(int argc, char* argv[]);
 		///
 		/// Create a new service, passing all configuration settings via json::value instead of parsing command line parameters.
 		///
-		service(json::value const &v);
+		service(const json::value& v);
+
 		///
 		/// Parse command line parameters, get the configuration file and additional options and create the service.
 		///
 		/// Note for Windows users: argv is assumed to be UTF-8 encoded strings, if you want pass non-ascii or "wide" parameters
 		/// you need convert them from UTF-16 to UTF-8. For example you can use booster::nowide::convert functions.
 		///
-		service(int argc,char *argv[]);
+		service(int argc, char* argv[]);
+
+		/// Remove copy constructor
+		service(const service&) = delete;
+		
+		/// Remove copy assignment operator
+		service& operator=(const service&) = delete;
+
 		///
 		/// Destroy the service - the last class to go down.
 		///
@@ -135,7 +144,7 @@ namespace cppcms {
 		///
 		/// Get locale::generator instance of this service
 		///
-		locale::generator const &generator();
+		const locale::generator& generator();
 		///
 		/// Get the default locale for this service.
 		///
@@ -143,27 +152,26 @@ namespace cppcms {
 		///
 		/// Get a locale by \a name, shortcut to generator().get(name);
 		///
-		std::locale locale(std::string const &name);
-
+		std::locale locale(const std::string& name);
 
 		///
 		/// Get low level central event loop of the CppCMS service that allows you to connect asynchronous application with generic
 		/// asynchronous sockets API or create any asynchronous TCP/IP servers over it.
 		///
-		booster::aio::io_service &get_io_service();
+		booster::aio::io_service& get_io_service();
 
 		///
 		/// Post an execution handler \a handler to the event loop queue. This member function is thread safe allowing 
 		/// safe communication between event loop thread (where all asynchronous applications run) and any other threads.
 		///
-		void post(booster::function<void()> const &handler);
+		void post(const std::function<void()>& handler);
 
 		///
 		/// Execute handler after forking processes (on POSIX platforms). This is useful when you want to start various asynchronous
 		/// applications or services in separate processes.
 		///
-		void after_fork(booster::function<void()> const &handler);
-		
+		void after_fork(const std::function<void()>& handler);
+
 		///
 		/// Get the size of thread pool each of CppCMS processes will be running.
 		///
@@ -188,21 +196,19 @@ namespace cppcms {
 		///
 		int process_id();
 
-
 		///
 		/// Get plugin scope ownd by the cppcms::service
 		///
-		plugin::scope &plugins();
+		plugin::scope& plugins();
 
 		/// \cond INTERNAL
-		
+
 		// internal functions never call it directly
+		cppcms::impl::service& impl();
 
-		cppcms::impl::service &impl();
+		const impl::cached_settings& cached_settings();
 
-		impl::cached_settings const &cached_settings();
-		
-		
+
 		/// \endcond
 
 	private:
@@ -224,7 +230,7 @@ namespace cppcms {
 		void win_service_exec();
 		void run_win_service();
 		#endif
-		booster::hold_ptr<impl::service> impl_;
+		std::propagate_const<std::unique_ptr<impl::service>> impl_;
 	};
 
 } //
